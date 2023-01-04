@@ -147,14 +147,14 @@ func FromBytesBigEncoding(buf *bytes.Reader, options ...tdigestOption) (*TDigest
 	_ = binary.Read(buf, endianess, &min)
 	_ = binary.Read(buf, endianess, &max)
 
-	var compression float32
+	var compression float64
 	err = binary.Read(buf, endianess, &compression)
 	if err != nil {
 		return nil, err
 	}
-	t.compression = float64(compression)
+	t.compression = compression
 
-	var numCentroids int16
+	var numCentroids int32
 	err = binary.Read(buf, endianess, &numCentroids)
 	if err != nil {
 		return nil, err
@@ -169,8 +169,8 @@ func FromBytesBigEncoding(buf *bytes.Reader, options ...tdigestOption) (*TDigest
 	t.summary.counts = t.summary.counts[:numCentroids]
 
 	for i := 0; i < int(numCentroids); i++ {
-		var count float32
-		var mean float32
+		var count float64
+		var mean float64
 		err = binary.Read(buf, endianess, &count)
 		if err != nil {
 			return nil, err
