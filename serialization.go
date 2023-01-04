@@ -8,6 +8,7 @@ import (
 	"math"
 )
 
+const bigEncoding int32 = 1
 const smallEncoding int32 = 2
 
 var endianess = binary.BigEndian
@@ -69,7 +70,7 @@ func FromBytes(buf *bytes.Reader, options ...tdigestOption) (*TDigest, error) {
 	}
 
 	if encoding != smallEncoding {
-		return nil, fmt.Errorf("Unsupported encoding version: %d", encoding)
+		return nil, fmt.Errorf("unsupported encoding version: %d", encoding)
 	}
 
 	t, err := newWithoutSummary(options...)
@@ -118,6 +119,69 @@ func FromBytes(buf *bytes.Reader, options ...tdigestOption) (*TDigest, error) {
 		}
 		t.summary.counts[i] = count
 		t.count += count
+	}
+
+	return t, nil
+}
+
+func FromBytesBigEncoding(buf *bytes.Reader, options ...tdigestOption) (*TDigest, error) {
+	var encoding int32
+	err := binary.Read(buf, endianess, &encoding)
+	if err != nil {
+		return nil, err
+	}
+
+	if encoding != bigEncoding {
+		return nil, fmt.Errorf("unsupported encoding version: %d", encoding)
+	}
+
+	t, err := newWithoutSummary(options...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Throw away min/max that doesn't get used in this implementation
+	var min float64
+	var max float64
+	_ = binary.Read(buf, endianess, &min)
+	_ = binary.Read(buf, endianess, &max)
+
+	var compression float32
+	err = binary.Read(buf, endianess, &compression)
+	if err != nil {
+		return nil, err
+	}
+	t.compression = float64(compression)
+
+	var numCentroids int16
+	err = binary.Read(buf, endianess, &numCentroids)
+	if err != nil {
+		return nil, err
+	}
+
+	if numCentroids < 0 || numCentroids > 1<<14 {
+		return nil, errors.New("bad number of centroids in serialization")
+	}
+
+	t.summary = newSummary(int(numCentroids))
+	t.summary.means = t.summary.means[:numCentroids]
+	t.summary.counts = t.summary.counts[:numCentroids]
+
+	for i := 0; i < int(numCentroids); i++ {
+		var count float32
+		var mean float32
+		err = binary.Read(buf, endianess, &count)
+		if err != nil {
+			return nil, err
+		}
+		err = binary.Read(buf, endianess, &mean)
+		if err != nil {
+			return nil, err
+		}
+
+		t.summary.counts[i] = uint64(count)
+		t.summary.means[i] = float64(mean)
 	}
 
 	return t, nil
