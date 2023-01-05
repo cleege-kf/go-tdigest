@@ -168,6 +168,7 @@ func FromBytesBigEncoding(buf *bytes.Reader, options ...tdigestOption) (*TDigest
 	t.summary.means = t.summary.means[:numCentroids]
 	t.summary.counts = t.summary.counts[:numCentroids]
 
+	t.count = 0
 	for i := 0; i < int(numCentroids); i++ {
 		var count float64
 		var mean float64
@@ -182,6 +183,7 @@ func FromBytesBigEncoding(buf *bytes.Reader, options ...tdigestOption) (*TDigest
 
 		t.summary.counts[i] = uint64(count)
 		t.summary.means[i] = float64(mean)
+		t.count += uint64(count)
 	}
 
 	return t, nil
